@@ -171,6 +171,73 @@ function ParallelIntegrator_2nd_3r(Y0, t0, t1)
     return truncMat([hatU_1,hatV_1,S_1],r);
 end
 
+
+## Rank-adaptive unconventional Integrator
+function Method_augmented_BUG_ode(Y0, t0, t1, augment=false)
+
+    global fun
+    global tol
+
+    # Initial values
+    U_0 = Y0[1];
+    V_0 = Y0[2];
+    S_0 = Y0[3];
+
+    r = size(U_0,2);
+    h = t1-t0;
+
+    # K-step:
+    funK = K ->
+    begin
+        Y_0::Matrix{ComplexF64} = K*V_0';
+        out::Matrix{ComplexF64} = fun(Y_0)*V_0
+        return out
+    end;
+
+    K_0::Matrix{ComplexF64} = U_0*S_0;
+    K_1 = odeSolver(funK, K_0 .+ 0.0*1im, h);
+
+
+    K_1 = [K_1 U_0];
+    U_1,_ = qr(K_1);
+    U_1 = Matrix(U_1[:,1:2*r])
+
+    # L-step:
+    funL = L ->
+    begin
+        Y_0::Matrix{ComplexF64} = U_0*L';
+        out::Matrix{ComplexF64} = fun(Y_0)'*U_0
+        return out
+    end;
+
+    K_0 = V_0*S_0';
+    K_1 = odeSolver(funL, K_0, h);
+
+    K_1 = [K_1 V_0];
+    V_1, _ = qr(K_1);
+    V_1 = Matrix(V_1[:,1:2*r])
+
+
+    # S-step:
+    funS = S ->
+    begin
+        Y_0::Matrix{ComplexF64} = U_1*S*V_1';
+        out::Matrix{ComplexF64} = U_1'*fun(Y_0)*V_1;
+        return out
+    end;
+
+    S_0 = (U_1'*U_0) * S_0 * (V_1'*V_0)';
+    S_1 = odeSolver(funS, S_0, h);
+
+    #Y1 = roundMat({U_1, V_1, S_1}, tol);
+    if augment
+        return [U_1,V_1,S_1];
+    else
+        return truncMat([U_1,V_1,S_1],r);
+    end
+
+end
+
 function MidpointBUG4r(Y0, t0, t1, augment=true)
 
     global fun
