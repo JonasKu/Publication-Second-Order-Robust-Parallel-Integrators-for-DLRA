@@ -1,0 +1,7 @@
+[deps]
+DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
+ODE = "c030b06c-0b6d-57c2-b091-7029874bd033"
+PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
+PyPlot = "d330b81b-6aea-500a-939a-2ce795aea3ee"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+Suppressor = "fd094767-a336-5f1f-9728-57cf17d0bbfb"
