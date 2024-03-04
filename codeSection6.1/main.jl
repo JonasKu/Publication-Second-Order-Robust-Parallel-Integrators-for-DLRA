@@ -1,3 +1,7 @@
+using Pkg
+Pkg.activate(".")
+Pkg.instantiate()
+
 using PyPlot
 using LinearAlgebra
 using Suppressor
