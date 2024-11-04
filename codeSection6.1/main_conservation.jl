@@ -6,6 +6,12 @@ using PyPlot
 using LinearAlgebra
 using Suppressor
 using SparseArrays
+using Random
+
+# Set a seed and store it
+seed = 1234
+Random.seed!(seed)
+
 include("methods.jl")
 
 # Cleaning and set parameters
@@ -79,7 +85,7 @@ end
 global tol
 tol = 1e-10;
 
-N= 100; #size problem.
+N= 500; #size problem.
 T = 1.0;#final time.
 
 # Definitions
@@ -98,11 +104,31 @@ Q = Q ./ norm(Q);
 
 fun = X -> begin 
     return -(D*X + X*D') / 1im + V_cos*X*V_cos / 1im
-end # + V_cos*X*V_cos; # this is the Schroedinger RHS
-funKMain = (K, V) -> -(D*K + K*(V'*D'*V)) / 1im # + V_cos*X*V_cos; # this is the Schroedinger RHS
-funLMain = (L, U) -> -(L*(U'*D*U)' + D*L) / 1im
-#fun = X -> D*X + X*D' + Q*Q'; # this is the source RHS
-#fun = X -> D*X + X*D' +Q*Q' + 0.1* ( D*X.^2 + X.^2*D' );
+end 
+
+funK = (K, V) -> begin 
+    return -(D*K + K*(V'*D'*V)) / 1im + V_cos*K*(V'*V_cos*V) / 1im
+end
+
+funK_pre = (K, VᵀDᵀV, VᵀVcosV) -> begin 
+    return -(D*K + K*VᵀDᵀV) / 1im + V_cos*K*(VᵀVcosV) / 1im
+end
+
+funL = (L, U) -> begin 
+    return -(L*(U'*D*U)' + D*L) / 1im + V_cos*L*(U'*V_cos*U) / 1im
+end
+
+funL_pre = (L, UᵀDU, UᵀVcosU) -> begin 
+    return -(L*UᵀDU' + D*L) / 1im + V_cos*L*(UᵀVcosU) / 1im
+end
+
+funS = (U, S, V) -> begin 
+    return -((U'*D*U)*S + S*(V'*D'*V)) / 1im + (U'*V_cos*U)*S*(V'*V_cos*V) / 1im
+end
+
+funS_pre = (S, UᵀDU, VᵀDᵀV, UᵀVcosU, VᵀVcosV) -> begin 
+    return -(UᵀDU*S + S*VᵀDᵀV) / 1im + (UᵀVcosU*S*VᵀVcosV) / 1im
+end
 
 function run(tt, rVec)
 
@@ -161,12 +187,9 @@ function run(tt, rVec)
                 end
                 Y1_new = ParallelIntegrator(Y1_new, (i-1)*h, ti);
                 Y1_BUG = ParallelIntegrator_2nd_3r(Y1_BUG, (i-1)*h, ti);
-                #Y1_unconv_adpt .= Y1_BUG
-                #Y1_new .= Y1_BUG
                 Y1_unconv_adpt = MidpointBUG4r(Y1_unconv_adpt, (i-1)*h, ti);
 
                 Y1_3rd = ParallelIntegrator_2nd(Y1_3rd, (i-1)*h, ti);
-                #Y1_3rd = ParallelIntegrator_2nd_midpoint(Y1_3rd, (i-1)*h, ti);
             end
 
             Error_BUG[index_r,index_h] = norm(sol .- buildMat(Y1_BUG)) ./ norm(sol) ;
