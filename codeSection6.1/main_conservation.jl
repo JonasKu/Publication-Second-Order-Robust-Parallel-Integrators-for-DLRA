@@ -228,11 +228,12 @@ ymin = 0.9 * minimum( [minimum(minimum(Error_BUG)) minimum(minimum(Error_new)) m
 
 fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4,figsize=(15,10),dpi=100)
 lt = ["k>:", "k*--", "ko-", "k^-."]
+label_txt = ["rank 5", "rank 10", "rank 15"]
 for i = 1: size(Error_BUG,1)
-    ax1.loglog(tt', Error_new[i,:], lt[i], markersize=10)
-    ax2.loglog(tt', Error_BUG[i,:], lt[i], markersize=10)
-    ax3.loglog(tt', Error_3rd[i,:], lt[i], markersize=10)
-    ax4.loglog(tt', Error_unconv_adapt[i,:], lt[i], markersize=10)
+    ax1.loglog(tt', Error_new[i,:], lt[i], markersize=10, label=label_txt[i])
+    ax2.loglog(tt', Error_BUG[i,:], lt[i], markersize=10, label=label_txt[i])
+    ax3.loglog(tt', Error_3rd[i,:], lt[i], markersize=10, label=label_txt[i])
+    ax4.loglog(tt', Error_unconv_adapt[i,:], lt[i], markersize=10, label=label_txt[i])
 end
 tt1 = tt./T
 tt2 = tt1.^2
@@ -270,6 +271,12 @@ ax1.set_xlabel("h", fontsize=15)
 ax2.set_xlabel("h", fontsize=15)
 ax3.set_xlabel("h", fontsize=15)
 ax4.set_xlabel("h", fontsize=15)
+ax1.legend(fontsize=20, loc="upper left")
+ax2.legend(fontsize=20, loc="upper left")
+ax3.legend(fontsize=20, loc="upper left")
+ax4.legend(fontsize=20, loc="upper left")
+
+#fig[:legend](fontsize=20, loc="upper center", ncol=3, bbox_to_anchor=(0.5, 1.05))
 tight_layout()
 plt.show()
 savefig("error.pdf")
@@ -281,10 +288,10 @@ ymin = 0.9 * minimum( NormError );
 fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4,figsize=(15,10),dpi=100)
 lt = ["k>:", "k*--", "ko-", "k^-."]
 for i = 1: size(Error_BUG,1)
-    ax1.loglog(tt', NormError[1,i,:], lt[i], markersize=10)
-    ax2.loglog(tt', NormError[2,i,:], lt[i], markersize=10)
-    ax3.loglog(tt', NormError[3,i,:], lt[i], markersize=10)
-    ax4.loglog(tt', NormError[4,i,:], lt[i], markersize=10)
+    ax1.loglog(tt', NormError[1,i,:], lt[i], markersize=10, label=label_txt[i])
+    ax2.loglog(tt', NormError[2,i,:], lt[i], markersize=10, label=label_txt[i])
+    ax3.loglog(tt', NormError[3,i,:], lt[i], markersize=10, label=label_txt[i])
+    ax4.loglog(tt', NormError[4,i,:], lt[i], markersize=10, label=label_txt[i])
 end
 tt1 = 0.09*tt./T
 tt2 = tt1.^2
@@ -327,6 +334,12 @@ ax1.set_xlabel("h", fontsize=15)
 ax2.set_xlabel("h", fontsize=15)
 ax3.set_xlabel("h", fontsize=15)
 ax4.set_xlabel("h", fontsize=15)
+
+ax1.legend(fontsize=20, loc="lower right")
+ax2.legend(fontsize=20, loc="upper left")
+ax3.legend(fontsize=20, loc="upper left")
+ax4.legend(fontsize=20, loc="upper left")
+
 tight_layout()
 plt.show()
 savefig("normPreservation.pdf")
