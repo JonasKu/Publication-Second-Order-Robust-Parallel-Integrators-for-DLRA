@@ -236,6 +236,70 @@ function ParallelIntegrator_2nd_eff_precompute(Y0, t0, t1)
     return truncMat([hatU_1,hatV_1,S_1],r);
 end
 
+function ParallelIntegrator_2nd_eff_precompute_adaptive(Y0, t0, t1, ϑ=0.00001)
+    global funK 
+    global funL 
+    global funS
+    global tol
+
+    # Initial values
+    U_0 = ComplexF64.(Y0[1]);
+    V_0 = ComplexF64.(Y0[2]);
+    S_0 = ComplexF64.(Y0[3]);
+
+    r = size(S_0, 1)
+
+    K_0::Matrix{ComplexF64} = U_0*S_0
+    L_0::Matrix{ComplexF64} = V_0*S_0'
+
+    # parameters
+    m = size(U_0,1);
+    n = size(V_0,1);
+    h = t1-t0;
+    r = size(U_0,2);
+
+    F₀V₀ = funK(K_0, V_0)
+    F₀ᵀU₀::Matrix{ComplexF64} = funL(L_0, U_0)
+    hatU_0, _ = np.linalg.qr([U_0 F₀V₀], mode="reduced");
+    hatV_0, _ = np.linalg.qr([V_0 F₀ᵀU₀], mode="reduced");
+    hatU_0[:, 1:r] = U_0 # this is very important!!!
+    hatV_0[:, 1:r] = V_0 # this is very important!!!
+
+    # precompute projections
+    UᵀDU = hatU_0'*D*hatU_0
+    VᵀDᵀV = hatV_0'*D'*hatV_0
+    UᵀVcosU = hatU_0'*V_cos*hatU_0
+    VᵀVcosV = hatV_0'*V_cos*hatV_0
+    
+    # K-step
+    K_0 = [U_0*S_0 zeros(m, r)]
+    fK = K -> funK_pre(K, VᵀDᵀV, VᵀVcosV)
+    K_1 = rk(fK, K_0, h)
+    hatU_1,_ = np.linalg.qr([hatU_0 K_1], mode="reduced");
+    hatU_1 = [hatU_0 hatU_1[:,(2*r+1):4*r]];
+    tildeU2 = hatU_1[:,(2*r+1):4*r]
+
+    # L-step
+    L_0 = [V_0*S_0' zeros(n, r)]#*(U_0'*hatU_0)
+    fL = L -> funL_pre(L, UᵀDU, UᵀVcosU)
+    L_1 = rk(fL, L_0, h)
+    hatV_1,_ = np.linalg.qr([hatV_0 L_1], mode="reduced");
+    hatV_1 = [hatV_0 hatV_1[:,(2*r+1):4*r]];
+    tildeV2 = hatV_1[:,(2*r+1):4*r]
+
+    # Sbar-step:
+    Sbar_0 = (hatU_0'* U_0)* S_0 * (hatV_0'*V_0)';
+    funSbar = S -> funS_pre(S, UᵀDU, VᵀDᵀV, UᵀVcosU, VᵀVcosV);
+    Sbar_1 = rk(funSbar, Sbar_0, h);
+
+    S_1 = zeros(ComplexF64, 4*r, 4*r)
+    S_1[1:2*r,1:2*r] .= Sbar_1
+    S_1[1:2*r,(2*r + 1):4*r] .= L_1'*tildeV2
+    S_1[(2*r + 1):4*r,1:2*r] .= tildeU2'*K_1
+
+    return truncMat([hatU_1,hatV_1,S_1],r, ϑ);
+end
+
 # the 3r variant of the 2nd order parallel integrator
 function ParallelIntegrator_2nd_3r(Y0, t0, t1)
 
@@ -808,6 +872,51 @@ function MidpointBUG4r_precompute(Y0, t0, t1, augment=true)
     return truncMat([hatU_1,hatV_1,S_1],r);
 end
 
+function MidpointBUG4r_precompute_adaptive(Y0, t0, t1, augment=true, ϑ=0.01)
+
+    global fun
+    global tol
+    global funS
+
+    # Initial values
+    U_0 = Y0[1];
+    V_0 = Y0[2];
+    S_0 = Y0[3];
+
+    # parameters
+    h = t1-t0;
+    r = size(U_0,2);
+
+    # Midpoint
+    Y12 = Method_augmented_BUG_ode_eff_precompute(Y0, t0, t0 + 0.5*h, augment)
+    U12 = Y12[1];
+    V12 = Y12[2];
+    S12 = Y12[3];
+
+    # basis augmentation
+    if augment
+        hatU_1,_ = np.linalg.qr([U12 fun(U12*S12*V12')*V12], mode="reduced"); #println("augment ", size(hatU_1), " vs ", 4*r)#hatU_1 = Matrix(hatU_1[:,1:4*r])
+        hatV_1,_ = np.linalg.qr([V12 fun(U12*S12*V12')'*U12], mode="reduced"); #hatV_1 = Matrix(hatV_1[:,1:4*r])
+    else
+        hatU_1,_ = np.linalg.qr([U_0 U12 fun(U12*S12*V12')*V12], mode="reduced"); #println("no augment ", size(hatU_1), " vs ", 3*r)# hatU_1 = Matrix(hatU_1[:,1:3*r])
+        hatV_1,_ = np.linalg.qr([V_0 V12 fun(U12*S12*V12')'*U12], mode="reduced"); #hatV_1 = Matrix(hatV_1[:,1:3*r])
+    end
+
+    # precompute projections
+    UᵀDU = hatU_1'*D*hatU_1
+    VᵀDᵀV = hatV_1'*D'*hatV_1
+    UᵀVcosU = hatU_1'*V_cos*hatU_1
+    VᵀVcosV = hatV_1'*V_cos*hatV_1
+
+    # S-step:
+    S_0 = (hatU_1'* U_0)* S_0 * (hatV_1'*V_0)';
+    fS = S -> funS_pre(S, UᵀDU, VᵀDᵀV, UᵀVcosU, VᵀVcosV);
+    S_1 = rk(fS, S_0, h);
+
+    #Y1 = roundMat({hatU_1,hatV_1,S_1},tol);
+    return truncMat([hatU_1,hatV_1,S_1],r);
+end
+
 ## Extra functions
 function rk(f, Y, h, order=4)
     if order == 1
@@ -918,6 +1027,43 @@ function truncMat(Y,r)
     S_1 = diagm(S[1:rmax]);
     U_1 = U_1[:,1:rmax];
     V_1 = V_1[:,1:rmax];
+
+    return [U_1,V_1,S_1];
+end
+
+function truncMat(Y, r, ϑ)
+
+    U_1 = Y[1];
+    V_1 = Y[2];
+    S = Y[3];
+
+    U,D,V = svd(S);
+
+    tmp = 0.0
+    ϑ = ϑ# * norm(D)
+
+    rmax = Int(floor(size(D, 1) / 2))
+
+    for j = 1:2*rmax
+        tmp = sqrt(sum(D[j:2*rmax]) .^ 2)
+        if tmp < ϑ
+            rmax = j
+            break
+        end
+    end
+
+    # if 2*r was actually not enough move to highest possible rank
+    if rmax == -1
+        rmax = rMaxTotal
+    end
+
+    rmax = min(rmax, 100)
+    rmax = max(rmax, 2)
+
+    # Truncation:
+    U_1 = U_1*U[:, 1:rmax];
+    V_1 = V_1*V[:, 1:rmax];
+    S_1 = diagm(D[1:rmax]);
 
     return [U_1,V_1,S_1];
 end
