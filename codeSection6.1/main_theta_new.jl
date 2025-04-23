@@ -243,7 +243,7 @@ tt3 = tt1.^3
 tt4 = tt1.^4
 
 #ax4.loglog(tt',tt1, "k-", alpha=0.3)
-ax4.loglog(tt',tt2, "k-", alpha=0.3)
+ax4.loglog(tt',tt2, "r-", alpha=0.3)
 #ax4.loglog(tt',tt3, "k-", alpha=0.3)
 #ax4.loglog(tt',tt4, "k-", alpha=0.3)
 #ax4.set_title("Runge-Kutta 4", fontsize=20)
